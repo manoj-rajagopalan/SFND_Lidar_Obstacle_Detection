@@ -21,52 +21,127 @@ void ProcessPointClouds<PointT>::numPoints(typename pcl::PointCloud<PointT>::Ptr
 
 
 template<typename PointT>
-typename pcl::PointCloud<PointT>::Ptr ProcessPointClouds<PointT>::FilterCloud(typename pcl::PointCloud<PointT>::Ptr cloud, float filterRes, Eigen::Vector4f minPoint, Eigen::Vector4f maxPoint)
+typename pcl::PointCloud<PointT>::Ptr
+ProcessPointClouds<PointT>::FilterCloud(typename pcl::PointCloud<PointT>::Ptr cloud,
+                                        float filterRes,
+                                        Eigen::Vector4f minPoint,
+                                        Eigen::Vector4f maxPoint)
 {
 
     // Time segmentation process
     auto startTime = std::chrono::steady_clock::now();
 
-    // TODO:: Fill in the function to do voxel grid point reduction and region based filtering
+    // Manoj:: Fill in the function to do voxel grid point reduction and region based filtering
+
+    // downsample
+    pcl::VoxelGrid<PointT> voxel_grid;
+    voxel_grid.setInputCloud(cloud);
+    voxel_grid.setLeafSize(filterRes, filterRes, filterRes);
+    typename pcl::PointCloud<PointT>::Ptr downsampled_cloud(new pcl::PointCloud<PointT>{});
+    voxel_grid.filter(*downsampled_cloud);
+
+    // crop to region of interest
+    pcl::CropBox<PointT> roi_filter(true);
+    roi_filter.setMin(minPoint);
+    roi_filter.setMax(maxPoint);
+    roi_filter.setInputCloud(downsampled_cloud);
+    typename pcl::PointCloud<PointT>::Ptr roi_filtered_cloud(new pcl::PointCloud<PointT>{});
+    roi_filter.filter(*roi_filtered_cloud);
+
+    // remove roof top
+    pcl::CropBox<PointT> roof_filter(true);
+    roof_filter.setMin(Eigen::Vector4f{-1.5f, -1.7f, -1.0f, 1.0f});
+    roof_filter.setMax(Eigen::Vector4f{2.6f, 1.7f, -0.4f, 1.0f});
+    roof_filter.setInputCloud(roi_filtered_cloud);
+    std::vector<int> roof_inlier_indices;
+    roof_filter.filter(roof_inlier_indices);
+
+    pcl::PointIndices::Ptr roof_inlier_point_indices(new pcl::PointIndices);
+    for(auto i : roof_inlier_indices) {
+        roof_inlier_point_indices->indices.push_back(i);
+    }
+
+    pcl::ExtractIndices<PointT> extractor;
+    extractor.setInputCloud(roi_filtered_cloud);
+    extractor.setIndices(roof_inlier_point_indices);
+    extractor.setNegative(true);
+    extractor.filter(*roi_filtered_cloud);
+
 
     auto endTime = std::chrono::steady_clock::now();
     auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
-    std::cout << "filtering took " << elapsedTime.count() << " milliseconds" << std::endl;
+    std::cout << "filtering took " << elapsedTime.count() << " milliseconds"
+              << " and reduced from " << cloud->size() << " to " << roi_filtered_cloud->size() << std::endl;
 
-    return cloud;
-
+    return roi_filtered_cloud;
 }
 
 
 template<typename PointT>
-std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> ProcessPointClouds<PointT>::SeparateClouds(pcl::PointIndices::Ptr inliers, typename pcl::PointCloud<PointT>::Ptr cloud) 
+std::pair<typename pcl::PointCloud<PointT>::Ptr,
+          typename pcl::PointCloud<PointT>::Ptr>
+    ProcessPointClouds<PointT>::SeparateClouds(pcl::PointIndices::Ptr inliers,
+                                               typename pcl::PointCloud<PointT>::Ptr cloud) 
 {
-  // TODO: Create two new point clouds, one cloud with obstacles and other with segmented plane
-
-    std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> segResult(cloud, cloud);
+    // MANOJ: Create two new point clouds, one cloud with obstacles and other with segmented plane
+    pcl::ExtractIndices<PointT> extract;
+    extract.setInputCloud(cloud);
+    extract.setIndices(inliers);
+    extract.setNegative(false);
+    typename pcl::PointCloud<PointT>::Ptr road{new pcl::PointCloud<PointT>};
+    extract.filter(*road);
+    extract.setNegative(true);
+    typename pcl::PointCloud<PointT>::Ptr obstacles{new pcl::PointCloud<PointT>};
+    extract.filter(*obstacles);
+    std::pair<typename pcl::PointCloud<PointT>::Ptr,
+              typename pcl::PointCloud<PointT>::Ptr> segResult(road, obstacles);    
     return segResult;
 }
 
 
 template<typename PointT>
-std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> ProcessPointClouds<PointT>::SegmentPlane(typename pcl::PointCloud<PointT>::Ptr cloud, int maxIterations, float distanceThreshold)
+std::pair<typename pcl::PointCloud<PointT>::Ptr,
+          typename pcl::PointCloud<PointT>::Ptr>
+    ProcessPointClouds<PointT>::SegmentPlane(typename pcl::PointCloud<PointT>::Ptr cloud,
+                                             int maxIterations,
+                                             float distanceThreshold)
 {
     // Time segmentation process
     auto startTime = std::chrono::steady_clock::now();
+	pcl::PointIndices::Ptr inliers{new pcl::PointIndices};
+    pcl::ModelCoefficients::Ptr coeffs{new pcl::ModelCoefficients};
 
-    // TODO:: Fill in the function to segment cloud into two parts, the driveable plane and obstacles
+    // MANOJ: Fill in this function to find inliers for the cloud.
+
+    pcl::SACSegmentation<PointT> seg;
+    seg.setOptimizeCoefficients(true);
+    seg.setModelType(pcl::SACMODEL_PLANE);
+    seg.setMethodType(pcl::SAC_RANSAC);
+    seg.setMaxIterations(maxIterations);
+    seg.setDistanceThreshold(distanceThreshold);
+
+    pcl::ExtractIndices<PointT> extract; // filtering object
+
+    seg.setInputCloud(cloud);
+    seg.segment(*inliers, *coeffs);
+    if(inliers->indices.size() == 0) {
+        std::cerr << "Could not segment point cloud"    << std::endl;
+    }
 
     auto endTime = std::chrono::steady_clock::now();
     auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
     std::cout << "plane segmentation took " << elapsedTime.count() << " milliseconds" << std::endl;
 
-    std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> segResult(cloud, cloud);
+    std::pair<typename pcl::PointCloud<PointT>::Ptr,
+              typename pcl::PointCloud<PointT>::Ptr> segResult = SeparateClouds(inliers,cloud);
     return segResult;
 }
 
 
 template<typename PointT>
-std::vector<typename pcl::PointCloud<PointT>::Ptr> ProcessPointClouds<PointT>::Clustering(typename pcl::PointCloud<PointT>::Ptr cloud, float clusterTolerance, int minSize, int maxSize)
+std::vector<typename pcl::PointCloud<PointT>::Ptr>
+ProcessPointClouds<PointT>::Clustering(typename pcl::PointCloud<PointT>::Ptr cloud,
+                                     float clusterTolerance, int minSize, int maxSize)
 {
 
     // Time clustering process
@@ -74,7 +149,32 @@ std::vector<typename pcl::PointCloud<PointT>::Ptr> ProcessPointClouds<PointT>::C
 
     std::vector<typename pcl::PointCloud<PointT>::Ptr> clusters;
 
-    // TODO:: Fill in the function to perform euclidean clustering to group detected obstacles
+    // Manoj:: Fill in the function to perform euclidean clustering to group detected obstacles
+    typename pcl::search::KdTree<PointT>::Ptr kd_tree(new pcl::search::KdTree<PointT>);
+    kd_tree->setInputCloud(cloud);
+
+    pcl::EuclideanClusterExtraction<PointT> ec;
+    ec.setClusterTolerance(clusterTolerance);
+    ec.setMinClusterSize(minSize);
+    ec.setMaxClusterSize(maxSize);
+    ec.setSearchMethod(kd_tree);
+    ec.setInputCloud(cloud);
+    std::vector<pcl::PointIndices> point_indices_cluster;
+    ec.extract(point_indices_cluster);
+    std::cerr << point_indices_cluster.size() << " Euclidean clusters extracted" << std::endl;
+
+    for(const auto& point_indices : point_indices_cluster) {
+        typename pcl::PointCloud<PointT>::Ptr cluster(new pcl::PointCloud<PointT>);
+        for(auto point_iter = point_indices.indices.cbegin();
+            point_iter != point_indices.indices.cend();
+            ++point_iter) {
+            cluster->push_back(cloud->points[*point_iter]);
+        }
+        cluster->width = cluster->points.size();
+        cluster->height = 1;
+        cluster->is_dense = true;
+        clusters.push_back(cluster);
+    }
 
     auto endTime = std::chrono::steady_clock::now();
     auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
