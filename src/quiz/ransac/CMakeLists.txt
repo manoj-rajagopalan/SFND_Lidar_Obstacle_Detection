@@ -15,7 +15,10 @@ add_definitions(${PCL_DEFINITIONS})
 list(REMOVE_ITEM PCL_LIBRARIES "vtkproj4")
 
 
-add_executable (quizRansac ransac2d.cpp ../../render/render.cpp)
+add_executable (quizRansac
+                ransac2d_main.cpp
+                ransac2d.cpp
+                ../../render/render.cpp)
 target_link_libraries (quizRansac ${PCL_LIBRARIES})
 
 
