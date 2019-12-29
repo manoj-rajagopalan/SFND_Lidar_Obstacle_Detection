@@ -44,7 +44,7 @@ public:
 	}
 
 	// return a list of point ids in the tree that are within distance of target
-	std::vector<int> search(std::vector<float> target, float distanceTol)
+	std::vector<int> search(std::vector<float> target, float distanceTol) const
 	{
 		std::vector<int> ids;
 		search(target, distanceTol, root, 0, ids);
@@ -74,7 +74,7 @@ public:
 	            const float distanceTol,
 				Node const *const node,
 				int idx,
-				std::vector<int>& ids)
+				std::vector<int>& ids) const
 	{
 		if(inBox(point, node->point, distanceTol)) {
 			const float d_sqr = sqr(point[0] - node->point[0]) + sqr(point[1] - node->point[1]);
@@ -93,9 +93,9 @@ public:
 		}
 	}
 
-	bool inBox(const std::vector<float>& target,
-	           const std::vector<float>& node_pt,
-						 const float distanceTol)
+	static bool inBox(const std::vector<float>& target,
+	                  const std::vector<float>& node_pt,
+						        const float distanceTol)
 	{
 		return ((target[0] - distanceTol) <= node_pt[0]) &&
 		       ((target[0] + distanceTol) >= node_pt[0]) &&
@@ -103,7 +103,3 @@ public:
 		       ((target[1] + distanceTol) >= node_pt[1]);
 	}
 };
-
-
-
-

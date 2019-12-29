@@ -92,9 +92,10 @@ void proximity(const std::vector<std::vector<float>>& points,
 	}
 }
 
-std::vector<std::vector<int>> euclideanCluster(const std::vector<std::vector<float>>& points,
-                                               KdTree* tree,
-											   float distanceTol)
+std::vector<std::vector<int>>
+euclideanCluster(const std::vector<std::vector<float>>& points,
+                 KdTree* tree,
+				 float distanceTol)
 {
 
 	// Manoj: Fill out this function to return list of indices for each cluster

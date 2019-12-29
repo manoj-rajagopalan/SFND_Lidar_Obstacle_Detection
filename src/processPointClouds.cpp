@@ -2,6 +2,9 @@
 
 #include "processPointClouds.h"
 
+#include "quiz/cluster/cluster.hpp"
+
+#define MANOJS_CODE
 
 //constructor:
 template<typename PointT>
@@ -137,18 +140,61 @@ std::pair<typename pcl::PointCloud<PointT>::Ptr,
     return segResult;
 }
 
+#ifdef MANOJS_CODE
+template <typename PointT>
+static
+void proximity(typename pcl::PointCloud<PointT>::Ptr &cloud,
+               const KdTree &tree,
+			   float distanceTol,
+			   int n,
+               int maxSize,
+			   typename pcl::PointCloud<PointT>::Ptr &new_cluster,
+			   std::vector<bool>& processed)
+{
+    if(new_cluster->size() >= maxSize) {
+        return;
+    }
+	processed[n] = true;
+	new_cluster->push_back(cloud->at(n));
+	std::vector<int> nearby = tree.search({cloud->at(n).x, cloud->at(n).y}, distanceTol);
+	for(const int nearby_id : nearby) {
+		if(!processed[nearby_id]) {
+			proximity<PointT>(cloud, tree, distanceTol, nearby_id, maxSize, new_cluster, processed);
+		}
+	}
+}
+#endif
 
 template<typename PointT>
 std::vector<typename pcl::PointCloud<PointT>::Ptr>
 ProcessPointClouds<PointT>::Clustering(typename pcl::PointCloud<PointT>::Ptr cloud,
-                                     float clusterTolerance, int minSize, int maxSize)
+                                       float clusterTolerance, int minSize, int maxSize)
 {
 
     // Time clustering process
     auto startTime = std::chrono::steady_clock::now();
 
     std::vector<typename pcl::PointCloud<PointT>::Ptr> clusters;
+    std::vector<bool> processed(cloud->size(), false);
 
+#ifdef MANOJS_CODE
+    KdTree tree;
+    for(int i = 0; i < int(cloud->size()); ++i) {
+        tree.insert({cloud->at(i).x, cloud->at(i).y}, i);
+    }
+
+	for(int n = 0; n < cloud->size(); ++n) {
+		if(!processed[n]) {
+			clusters.emplace_back(new pcl::PointCloud<PointT>());
+			auto& new_cluster = clusters.back();
+			proximity<PointT>(cloud, tree, clusterTolerance, n, maxSize, new_cluster, processed);
+            if(new_cluster->size() < minSize) {
+                clusters.pop_back();
+            }
+		}
+	}
+
+#else // ! MANOJS_CODE
     // Manoj:: Fill in the function to perform euclidean clustering to group detected obstacles
     typename pcl::search::KdTree<PointT>::Ptr kd_tree(new pcl::search::KdTree<PointT>);
     kd_tree->setInputCloud(cloud);
@@ -175,6 +221,7 @@ ProcessPointClouds<PointT>::Clustering(typename pcl::PointCloud<PointT>::Ptr clo
         cluster->is_dense = true;
         clusters.push_back(cluster);
     }
+#endif // MANOJS_CODE
 
     auto endTime = std::chrono::steady_clock::now();
     auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
