@@ -174,12 +174,25 @@ int main ()
 	
 
 	// MANOJ: Change the max iteration and distance tolerance arguments for Ransac function
-	std::unordered_set<int> inliers = RansacPlane(cloud, 100, 1.0);
+	const std::vector<int> inliers = RansacPlane<pcl::PointXYZ>(cloud, 100, 0.2f);
 	//- std::cout << "inliers.size = " << inliers.size() << std::endl;
 
-	pcl::PointCloud<pcl::PointXYZ>::Ptr  cloudInliers(new pcl::PointCloud<pcl::PointXYZ>());
+	pcl::PointCloud<pcl::PointXYZ>::Ptr cloudInliers(new pcl::PointCloud<pcl::PointXYZ>());
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloudOutliers(new pcl::PointCloud<pcl::PointXYZ>());
 
+	int index = 0;
+	for(const int inlier_index : inliers) {
+		for(; index < inlier_index; ++index) {
+			cloudOutliers->points.push_back(cloud->points[index]);
+		}
+		cloudInliers->points.push_back(cloud->points[index]);
+		++index;
+	}
+	for(; index < cloud->points.size(); index++) {
+		cloudOutliers->points.push_back(cloud->points[index]);
+	}
+
+#if 0 //-
 	for(int index = 0; index < cloud->points.size(); index++)
 	{
 		pcl::PointXYZ point = cloud->points[index];
@@ -188,7 +201,7 @@ int main ()
 		else
 			cloudOutliers->points.push_back(point);
 	}
-
+#endif
 
 	// Render 2D point cloud with inliers and outliers
 	if(inliers.size())
