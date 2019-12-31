@@ -19,11 +19,14 @@ std::vector<int> RansacPlane(typename pcl::PointCloud<PointT>::Ptr cloud,
 {
 	srand(time(NULL));
 	std::vector<int> inliersResult;
+	std::vector<int> inliers_temp;
+
 	std::uniform_int_distribution<int> rnd_idx(0, cloud->points.size());
 	std::mt19937 rnd_gen;
 
 	for(int iter = 0; iter < maxIterations; ++iter)
 	{
+		inliers_temp.clear();
 		Eigen::Vector3d p0;
 		Eigen::Vector3d normal;
 		double normal_length = 0.0;
@@ -43,21 +46,21 @@ std::vector<int> RansacPlane(typename pcl::PointCloud<PointT>::Ptr cloud,
 			p0 = {v0.x, v0.y, v0.z};
 		}
 		normal = normal / normal_length; // make unit vec
-		std::vector<int> inliers;
 		for (int n = 0; n < cloud->points.size(); ++n) {
 			const PointT& v = cloud->points[n];
 			const Eigen::Vector3d p(v.x, v.y,  v.z);
 			const double distance_to_plane = std::abs(normal.dot(p - p0));
 			if(distance_to_plane < distanceTol) {
-				inliers.push_back(n);
+				inliers_temp.push_back(n);
 			}
 		}
 
-		if(inliers.size() > inliersResult.size()) {
-			inliersResult.clear();
-			std::copy(inliers.cbegin(),
-			          inliers.cend(),
-					  std::inserter(inliersResult, inliersResult.begin()));
+		if(inliers_temp.size() > inliersResult.size()) {
+			std::swap(inliersResult, inliers_temp);
+			// inliersResult.clear();
+			// std::copy(inliers.cbegin(),
+			//           inliers.cend(),
+			// 		  std::inserter(inliersResult, inliersResult.begin()));
 		}
 	}
 
