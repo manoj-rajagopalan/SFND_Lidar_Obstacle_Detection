@@ -3,6 +3,7 @@
 #include "processPointClouds.h"
 
 #include "quiz/cluster/cluster.hpp"
+#include "quiz/ransac/ransac2d.hpp"
 
 #define MANOJS_CODE
 
@@ -111,22 +112,29 @@ std::pair<typename pcl::PointCloud<PointT>::Ptr,
 {
     // Time segmentation process
     auto startTime = std::chrono::steady_clock::now();
-	pcl::PointIndices::Ptr inliers{new pcl::PointIndices};
-    pcl::ModelCoefficients::Ptr coeffs{new pcl::ModelCoefficients};
+
+    pcl::PointIndices::Ptr inliers{new pcl::PointIndices};
+
+#ifdef MANOJS_CODE
+    inliers->indices = RansacPlane<PointT>(cloud, maxIterations, distanceThreshold);
+
+#else // ! MANOJS_CODE
+
+	pcl::ModelCoefficients::Ptr coeffs{new pcl::ModelCoefficients};
 
     // MANOJ: Fill in this function to find inliers for the cloud.
 
     pcl::SACSegmentation<PointT> seg;
+    seg.setInputCloud(cloud);
     seg.setOptimizeCoefficients(true);
     seg.setModelType(pcl::SACMODEL_PLANE);
     seg.setMethodType(pcl::SAC_RANSAC);
     seg.setMaxIterations(maxIterations);
     seg.setDistanceThreshold(distanceThreshold);
 
-    pcl::ExtractIndices<PointT> extract; // filtering object
-
-    seg.setInputCloud(cloud);
     seg.segment(*inliers, *coeffs);
+#endif // MANOJS_CODE
+
     if(inliers->indices.size() == 0) {
         std::cerr << "Could not segment point cloud"    << std::endl;
     }
