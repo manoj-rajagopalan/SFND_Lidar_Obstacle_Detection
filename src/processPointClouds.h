@@ -45,6 +45,8 @@ public:
     typename pcl::PointCloud<PointT>::Ptr loadPcd(std::string file);
 
     std::vector<boost::filesystem::path> streamPcd(std::string dataPath);
-  
+
+private:
+    pcl::PointIndices::Ptr inliers;
 };
 #endif /* PROCESSPOINTCLOUDS_H_ */

@@ -9,7 +9,9 @@
 
 //constructor:
 template<typename PointT>
-ProcessPointClouds<PointT>::ProcessPointClouds() {}
+ProcessPointClouds<PointT>::ProcessPointClouds() {
+    inliers = pcl::PointIndices::Ptr(new pcl::PointIndices);
+}
 
 
 //de-constructor:
@@ -113,8 +115,6 @@ std::pair<typename pcl::PointCloud<PointT>::Ptr,
     // Time segmentation process
     auto startTime = std::chrono::steady_clock::now();
 
-    pcl::PointIndices::Ptr inliers{new pcl::PointIndices};
-
 #ifdef MANOJS_CODE
     inliers->indices = RansacPlane<PointT>(cloud, maxIterations, distanceThreshold);
 
@@ -133,6 +133,7 @@ std::pair<typename pcl::PointCloud<PointT>::Ptr,
     seg.setDistanceThreshold(distanceThreshold);
 
     seg.segment(*inliers, *coeffs);
+
 #endif // MANOJS_CODE
 
     if(inliers->indices.size() == 0) {
@@ -186,7 +187,7 @@ ProcessPointClouds<PointT>::Clustering(typename pcl::PointCloud<PointT>::Ptr clo
     std::vector<bool> processed(cloud->size(), false);
 
 #ifdef MANOJS_CODE
-    KdTree tree;
+    KdTree tree(cloud->size());
     for(int i = 0; i < int(cloud->size()); ++i) {
         tree.insert({cloud->at(i).x, cloud->at(i).y}, i);
     }
