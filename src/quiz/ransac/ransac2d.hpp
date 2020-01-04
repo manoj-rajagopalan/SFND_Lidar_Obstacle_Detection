@@ -21,6 +21,9 @@ std::vector<int> RansacPlane(typename pcl::PointCloud<PointT>::Ptr cloud,
 	std::vector<int> inliersResult;
 	std::vector<int> inliers_temp;
 
+	inliersResult.reserve(cloud->points.size());
+	inliers_temp.reserve(cloud->points.size());
+
 	std::uniform_int_distribution<int> rnd_idx(0, cloud->points.size());
 	std::mt19937 rnd_gen;
 
