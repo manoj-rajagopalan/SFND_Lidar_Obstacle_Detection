@@ -1,16 +1,11 @@
 #ifndef RANSAC2D_HPP_
 #define RANSAC2D_HPP_
 
+#include <random>
 #include <vector>
 
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
-
-#if 0 //-
-std::unordered_set<int> RansacPlane(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
-                                    int maxIterations,
-							        float distanceTol);
-#endif
 
 template <typename PointT>
 std::vector<int> RansacPlane(typename pcl::PointCloud<PointT>::Ptr cloud,
