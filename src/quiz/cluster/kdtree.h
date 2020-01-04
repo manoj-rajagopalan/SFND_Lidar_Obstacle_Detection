@@ -26,16 +26,19 @@ class KdTree
 public:
 	Node* root = nullptr;
 
-	KdTree()
+	explicit KdTree(int num_points)
 	: root(nullptr)
-	{}
+	{
+		nodes_.reserve(num_points);
+	}
 
 	void insert(std::vector<float> point, int id)
 	{
 		// Manoj: Fill in this function to insert a new point into the tree
 		// the function should create a new node and place correctly with in the root 
 		assert(point.size() == 2);
-		auto new_node = new Node(point, id);
+		nodes_.emplace_back(point, id);
+		Node *new_node = &nodes_.back();
 		if (root) {
 			addToTree(new_node, root, 0);
 		} else {
@@ -98,8 +101,10 @@ public:
 						        const float distanceTol)
 	{
 		return ((target[0] - distanceTol) <= node_pt[0]) &&
-		       ((target[0] + distanceTol) >= node_pt[0]) &&
-			   ((target[1] - distanceTol) <= node_pt[1]) &&
-		       ((target[1] + distanceTol) >= node_pt[1]);
+           ((target[0] + distanceTol) >= node_pt[0]) &&
+           ((target[1] - distanceTol) <= node_pt[1]) &&
+           ((target[1] + distanceTol) >= node_pt[1]);
 	}
+
+	std::vector<Node> nodes_;
 };
